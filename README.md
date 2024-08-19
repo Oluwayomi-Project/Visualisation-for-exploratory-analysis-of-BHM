@@ -44,7 +44,7 @@ Model 3 - The region hierarchical model $\text{math} \sim \; \text{year} + (1 + 
 
 Model 4 - The Income hierarchical model $\text{math} \sim \; \text{year} + (1 + \text{year} | \text{Income}) + (1 + \text{year} | \text{Country})$
 
-Model 5 - The Income-region hierarchical model $\text{math} \sim \; \text{year} + (1 + \text{year} | \text{Income_region}) + (1 + \text{year} | \text{Country})$
+Model 5 - The Income-region hierarchical model $\text{math} \sim \; \text{year} + (1 + \text{year} | \text{Income-region}) + (1 + \text{year} | \text{Country})$
 
 
 #### Extracting estimates from the models - 01_Model_Estimates.Rmd
