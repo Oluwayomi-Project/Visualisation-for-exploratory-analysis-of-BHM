@@ -32,19 +32,19 @@ For the independent country model, we ignored countries with one data points. Co
 
 ### Model Fitting - 01_Hierarchical_Models.Rmd
 In all our models, we employed the brms R package and fitted 5 models which are:
-Model 1 - The independent model  $\text{math} \sim \; \text{year} * \text{Country}$
+Model 1 - The independent model  $\text{math} \sim  \text{year} * \text{Country}$
 
-Model 2 - The country-specific model $\text{math} \sim \; \text{year} + (1 + \text{year} | \text{Country})$
+Model 2 - The country-specific model $\text{math} \sim  \text{year} + (1 + \text{year} | \text{Country})$
 
 Priors were established for the country-specific alphas and betas, as well as for $\sigma$. Introducing a prior on $\sigma$ was crucial for facilitating the posterior setup, enabling predictions for missing data points and future estimations. This process was reiterated with a hyper-parameterisation of  $\alpha$ and $\beta$, ensuring that country estimates originated from a common prior distribution. 
 
 Subsequently, we extended the model into a hierarchical structure, incorporating three levels (Region, Income, and Income-region). The model was adapted to assign hyper-parameters to countries based on their respective hierarchical structures. Our rationale behind specifying distinct hyper-parameters according to the hierarchical structure was to evaluate the influence of information sharing within specific groups.
 
-Model 3 - The region hierarchical model $\text{math} \sim \; \text{year} + (1 + \text{year} | \text{Region}) + (1 + \text{year} | \text{Country})$
+Model 3 - The region hierarchical model $\text{math} \sim  \text{year} + (1 + \text{year} | \text{Region}) + (1 + \text{year} | \text{Country})$
 
-Model 4 - The Income hierarchical model $\text{math} \sim \; \text{year} + (1 + \text{year} | \text{Income}) + (1 + \text{year} | \text{Country})$
+Model 4 - The Income hierarchical model $\text{math} \sim  \text{year} + (1 + \text{year} | \text{Income}) + (1 + \text{year} | \text{Country})$
 
-Model 5 - The Income-region hierarchical model $\text{math} \sim \; \text{year} + (1 + \text{year} | \text{Income-region}) + (1 + \text{year} | \text{Country})$
+Model 5 - The Income-region hierarchical model $\text{math} \sim  \text{year} + (1 + \text{year} | \text{Income-region}) + (1 + \text{year} | \text{Country})$
 
 
 ### Extracting estimates from the models - 01_Model_Estimates.Rmd
