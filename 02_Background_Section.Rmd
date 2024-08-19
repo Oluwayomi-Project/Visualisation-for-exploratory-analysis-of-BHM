@@ -1,0 +1,122 @@
+---
+title: "Background Section of the Paper"
+author: "Oluwayomi Akinfenwa"
+date: "06/08/2024"
+output:
+  pdf_document:
+    toc: yes
+    toc_depth: '4'
+  bookdown::html_document2:
+    toc: no
+    toc_float: yes
+    toc_depth: 4
+    number_sections: yes
+  html_document:
+    toc: yes
+    toc_depth: '4'
+    df_print: paged
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+options(knitr.duplicate.label = 'allow')
+```
+
+Creating a folder to store all the plots
+
+```{r, libraries, include = FALSE}
+if (!dir.exists(here::here("Saved_Plots")))
+  dir.create(here::here("Saved_Plots"))
+```
+
+Sourcing the file containing all the data needed for this analysis from the Rmd file named: 01_PISA_Analysis_Data.Rmd.
+This file contains the raw data from OECD website and all the necessary data for this analysis.
+
+```{r loading the data}
+sys.source("00_PISA_Data.R", envir = knitr::knit_global())
+```
+
+**The conventional approach to visualise estimates from a BHM or linear regression model.**
+
+To illustrate the conventional approach, we use a country-specific hierarchical model, where countries borrow strength from a global distribution.
+
+$$ \text{math} \sim \; \text{year} + (1 + \text{year} | \text{Country}) $$
+
+All BRMS models used for this analysis are found in a folder named: 01_Hierarchical_Models.Rmd.
+
+Loading the country-specific model from the "Manuscript_Models" instead of fitting a new model entirely.
+
+```{r}
+#Country specific model
+load(here::here("Manuscript_Models", "Country_BRMSModel.Rdata"))
+```
+
+Extracting the estimates from the model
+
+```{r}
+## Pulling the intercept results. The global intercept (b_Intercept) and the country offsets(r_Country[Country,term]).
+Country_Int <- spread_rvars(Country_BRMSModel, 
+                            r_Country[Country,term], b_Intercept) |>
+  filter(term == "Intercept") |>
+  mutate(Country = stringr::str_replace_all(Country, fixed("."), " ")) |>
+  mutate(r_Country = r_Country+ b_Intercept) |>
+  rename(rvar= r_Country) |>
+  select(Country, term, rvar)
+
+## Pulling the slope results. The global slope (b_year_orig) and the country offsets(r_Country[Country,term]).
+Country_Slop <- spread_rvars(Country_BRMSModel, 
+                             r_Country[Country,term], b_year_orig) |>
+  filter(term == "year_orig") |>
+  mutate(Country = stringr::str_replace_all(Country, fixed("."), " ")) |>
+  mutate(r_Country = r_Country+ b_year_orig) |>
+   rename(rvar=r_Country) |>
+  select(Country, term, rvar)
+
+## Tidying the estimates
+Country_IS <- rbind(Country_Int, Country_Slop)
+
+Country_IS_Est <- Country_IS |> mutate(coef=median(rvar))|> 
+  select(-rvar)|>
+  pivot_wider(values_from=coef, names_from=term)
+```
+
+#### Visualising this model fit and the most basic way
+
+```{r}
+pdf("Saved_Plots/Country_specific.pdf")
+ggplot(data = PISA_Europe_Data,
+         aes(x=year_orig, y=math))+
+  geom_point(color = "grey25")+
+   geom_abline(data= Country_IS_Est, 
+               aes(slope=year_orig, intercept= Intercept))+
+  facet_wrap(~ Country, nrow = 6,
+             labeller = label_wrap_gen(width= 10))+
+  labs(x = " ", y = " ") +
+ scale_x_continuous(breaks = seq(-15,0,3),labels = function(x) x+2018)+
+  theme_bw() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 0.5, vjust = 0.5,
+                                      size = 7, face = "bold"),
+        plot.title = element_text(hjust = 0.4, size = 10),
+        axis.text.y = element_text(size = 10, face = "bold"),
+        strip.text.x = element_text(size = 9, face = "bold"))
+dev.off()
+```
+
+#### Pulling out the offsets from the country-specific model
+
+```{r}
+CI_offset <- spread_rvars(Country_BRMSModel, r_Country[Country,term], b_Intercept) |>
+  filter(term == "Intercept") |>
+  mutate(Country = stringr::str_replace_all(Country, fixed("."), " ")) |>
+    rename(rvar= r_Country) 
+
+# the visual
+pdf("Saved_Plots/offset.pdf")
+ggplot(data = CI_offset)+
+  ggdist::stat_pointinterval(aes(xdist = rvar, y= Country),
+          color ="burlywood4", .width = c(.50, .95), point_size = 1.4)+
+  geom_vline(xintercept = 0, color = "red3") +
+  labs(x = " ", y = " ")
+dev.off()
+```
+
