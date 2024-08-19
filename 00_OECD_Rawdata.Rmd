@@ -1,0 +1,445 @@
+---
+title: "OECD Raw Data"
+author: "Oluwayomi Akinfenwa"
+date: "08/02/2024"
+output:
+  html_document:
+    toc: yes
+    toc_depth: '4'
+    df_print: paged
+  bookdown::html_document2:
+    toc: no
+    toc_float: yes
+    toc_depth: 4
+    number_sections: yes
+  pdf_document:
+    toc: yes
+    toc_depth: '4'
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+options(knitr.duplicate.label = 'allow')
+```
+
+### Loading necessary packages
+
+```{r}
+library(haven)
+library(intsvy)
+library(tidyverse)
+```
+
+#### Creating directory to strore the raw data and the dictionary explaining the variables in the data.
+
+```{r}
+if (!dir.exists(here::here("PISA_Data")))
+ dir.create(here::here("PISA_Data"))
+```
+
+
+### Loading the raw 2022 PISA Data
+
+**I renamed the raw data to STU_2022.sav**
+
+```{r}
+pisa22 <- here::here("PISA_Data", "pisa22.Rdata")
+student22 <- haven::read_spss("SPSS_Data/STU_2022.sav") 
+dictstudent22 <- labelled::generate_dictionary(student22)
+
+save(student22, dictstudent22,file= pisa22)
+```
+
+### Loading the raw 2018 PISA Data
+
+**I renamed the raw data to STU_2018.sav**
+
+```{r}
+pisa18 <- here::here("PISA_Data", "pisa18.Rdata")
+student18 <- haven::read_spss("SPSS_Data/STU_2018.sav") 
+dictstudent18 <- labelled::generate_dictionary(student18)
+
+save(student18, dictstudent18,file= pisa18)
+```
+
+### Loading the raw 2015 PISA Data
+
+**I renamed the raw data to STU_2015.sav**
+
+```{r}
+pisa15 <- here::here("PISA_Data", "pisa15.Rdata")
+student15 <- haven::read_spss("SPSS_Data/STU_2015.sav") 
+dictstudent15 <- labelled::generate_dictionary(student15)
+
+save(student15, dictstudent15,file= pisa15)
+```
+
+
+*At the inception of PISA, the data were stored as text.file*
+
+*There is a R package called pbiecek which contains the raw data for 2000 to 2012*. 
+
+*For 2012, we downloaded the data set (score points and the weights) directly from the pbiecek github*
+
+### Loading the raw PISA Data from 2012 through to 2003.
+
+**I downloaded student2012.rda and student2012weights.rda directly from pbiecek github repository**
+**I downloaded student2009.rda directly from pbiecek github repository**
+**I downloaded student2006.rda directly from pbiecek github repository**
+**I downloaded student2003.rda directly from pbiecek github repository**
+
+```{r}
+### 2012
+pisa12 <- here::here("PISA_Data", "pisa12.Rdata")
+load(here::here("SPSS_Data/student2012.rda"))
+load(here::here("SPSS_Data/student2012weights.rda"))
+
+student12 <- cbind(student2012, student2012weights)
+
+save(student12, file= pisa12)
+
+### 2009
+pisa09 <- here::here("PISA_Data", "pisa09.Rdata")
+load(here::here("SPSS_Data/student2009.rda")) 
+student09 <- student2009
+
+save(student09, file= pisa09)
+
+### 2006
+pisa06 <- here::here("PISA_Data", "pisa06.Rdata")
+load(here::here("SPSS_Data/student2006.rda")) 
+student06 <- student2006
+
+save(student06, file= pisa06)
+
+### 2003
+pisa03 <- here::here("PISA_Data", "pisa03.Rdata")
+load(here::here("SPSS_Data/student2003.rda")) 
+student03 <- student2003
+
+save(student03, file= pisa03)
+```
+
+**The intsvy R package provides analysis and visualisation tools that considers the complex sample design (such as the replicate weights) in the calculation. Hence, I will use the package to calculate the mean of the raw data**
+
+#### Loading all the raw data
+
+```{r loading the data}
+load(here::here("PISA_Data", "pisa22.Rdata"))
+
+load(here::here("PISA_Data", "pisa18.Rdata"))
+
+load(here::here("PISA_Data", "pisa15.Rdata"))
+
+load(here::here("PISA_Data", "pisa12.Rdata"))
+
+load(here::here("PISA_Data", "pisa09.Rdata"))
+
+load(here::here("PISA_Data", "pisa06.Rdata"))
+
+load(here::here("PISA_Data", "pisa03.Rdata"))
+```
+
+#### Averaging the data
+
+**2022 data**
+
+```{r averaging the 2022 data}
+Student_2022 <- student22 |> select(c("CNT", starts_with("PV") & ends_with("MATH")))
+
+DATA_2022 <-intsvy.mean.pv(pvnames = paste0("PV", 1:10, "MATH"), by = "CNT",
+               data = student22, config = pisa_conf)
+
+##The chunk of code DATA2022_ISOcheck from line 427 to 436 contains evidence that validate re-coding the ISO code for the following countries.
+## In PISA_2022 documentary 'dictstudent22'; 
+## KSV rep KOSOVO, In the WDI data, the ISO code for KOSOVO is XKX
+## TAP rep Chinese Taipei, In the WDI data, It is called "Taiwan, China" with ISO code TWN.
+## "QUR" rep Ukrainian region, In the WDI data, the ISO code for Ukraine is UKR
+## "QAZ" rep Azerbaijan, In the WDI data, the ISO code for Azerbaijan is AZE.
+
+### Hence the need to re-code the factor in DATA_2022$CNT to these ISO code in WDI data (since, we intend to merge the data with the WDI data for the income classification.
+
+DATA_2022 <- DATA_2022 |>
+  mutate(CNT = recode_factor(CNT,
+                        "KSV" = "XKX", "TAP" = "TWN",
+                        "QUR"=  "UKR", "QAZ" = "AZE"))
+## Doing this has helped us retain the score points across all the 80 countries that participated in PISA 2022.
+
+## Selecting the mean and country ISO code, renaming mean to math and creating a new column with year = 2022.
+
+Math_2022 <- DATA_2022 |> 
+  select(CNT, Mean) |>
+  mutate(year = 2022) |>
+  rename(math = Mean) |>
+  as_tibble()
+```
+
+**2018 data**
+
+```{r averaging the 2018 data}
+Student_2018 <- student18 |> select(c("CNT", starts_with("PV") & ends_with("MATH")))
+
+DATA_2018 <-intsvy.mean.pv(pvnames = paste0("PV", 1:10, "MATH"), by = "CNT",
+               data = student18, config = pisa_conf)
+
+## Selecting the mean and country ISO code, renaming mean to math and creating a new column with the year.
+
+Math_2018 <- DATA_2018 |> 
+  select(CNT, Mean) |>
+  mutate(year = 2018) |>
+  rename(math = Mean) |>
+  as_tibble()
+```
+
+**2015 data **
+
+```{r averaging the 2015 data}
+Student_2015 <- student15 |> select(c("CNT", starts_with("PV") & ends_with("MATH")))
+
+DATA_2015 <-intsvy.mean.pv(pvnames = paste0("PV", 1:10, "MATH"), by = "CNT",
+               data = student15, config = pisa_conf)
+
+## Selecting the mean and country ISO code, renaming mean to math and creating a new column with the year.
+
+Math_2015 <- DATA_2015 |> 
+  select(CNT, Mean) |>
+  mutate(year = 2015) |>
+  rename(math = Mean) |>
+  as_tibble()
+```
+
+**2012 data**
+
+```{r averaging the 2012 data}
+Data_2012 <-intsvy.mean.pv(pvnames = paste0("PV", 1:5, "MATH"), by = "CNT",
+               data = student12, config = pisa_conf)
+
+## I realised that some country names are not the same in the data_2012 and WDI
+# The WDI data does not have ISO code for Hong Kong, Korea, Shanghai, Chinese Taipei, Turkey, United State of America.
+# Hence, the need to re-code the country names as it is in the WDI package.
+Data_2012 <- Data_2012 |>
+  mutate(CNT = recode_factor(CNT,
+                                "Hong Kong-China" = "Hong Kong SAR, China",
+                                 "Turkey" = "Turkiye",
+                                 "Korea" = "Korea, Rep.",
+                                 "Kyrgyzstan" = "Kyrgyz Republic",
+                                 "Republic of Moldova" = "Moldova",
+                                 "Macao-China" = "Macao SAR, China",
+                                 "China-Shanghai" = "China",
+                                 "Tamil Nadu-India" = "India",
+                                 "Chinese Taipei" = "Taiwan, China",
+                                  "Miranda-Venezuela" = "Venezuela, RB",
+                                  "Perm(Russian Federation)" = "Russian Federation",
+                                  "Russian Federation" = "Russian federation", #in the data, Russian appeared twice and checking with Catherine's version, the second one is the right one. hence the need to drop this.
+                                 "United States of America" = "United States"))
+
+#It will also interest us to know that the CNT column contains the country names instead of the ISO code
+# every other year except 2009 and 2012 has the CNT has the ISO code, for uniformity it is advisable to include the ISO code to the 2009 and 2012 data.
+
+# A R package called countrycode contains the country name with its ISO code
+#data(countrycode).
+#I tried that package and realised that some of the country names we have in the data set does not have their ISO code in that countrycode R package library.
+#Hence, I have decided to use the WDI data, since we have the intention of using this data to extract the income classification for the available countries in the PISA data set.
+
+library(WDI)
+WDI <- WDI_data$country
+
+# Selecting the ISO code and the country names
+Countrycode <- WDI |>
+  select(iso3c, country)
+
+DATA_2012 <- Data_2012 |>
+  left_join(Countrycode, join_by("CNT" =="country"))
+
+## Selecting the mean and country ISO code, renaming mean to math and creating a new column with the year.
+
+Math_2012 <- DATA_2012 |> 
+  select(iso3c, Mean) |>
+  mutate(year = 2012) |>
+  rename(math = Mean, CNT = iso3c) |>
+  as_tibble()
+```
+
+**2009 data**
+
+```{r averaging the 2009 data}
+Student_2009 <- student09 |> select(c("CNT", starts_with("PV") & ends_with("MATH")))
+
+
+Data_2009 <-intsvy.mean.pv(pvnames = paste0("PV", 1:5, "MATH"), by = "CNT",
+               data = student09, config = pisa_conf)
+
+Data_2009 <- Data_2009 |>
+  mutate(CNT = recode_factor(CNT,
+                                "Hong Kong-China" = "Hong Kong SAR, China",
+                                 "Turkey" = "Turkiye",
+                                 "Korea" = "Korea, Rep.",
+                                 "Kyrgyzstan" = "Kyrgyz Republic",
+                                 "Republic of Moldova" = "Moldova",
+                                 "Macao-China" = "Macao SAR, China",
+                                 "Shanghai-China" = "China",
+                                 "Tamil Nadu-India" = "India",
+                                 "Chinese Taipei" = "Taiwan, China",
+                                  "Miranda-Venezuela" = "Venezuela, RB",
+                                 "United State of America" = "United States"))
+
+#It will interest us to know that the CNT column contains the country name instead of the ISO code
+# every other year except 2009 and 2012 has the CNT has the ISO code, for uniformity it is advisable to 
+# also include the ISO code to the data.
+
+DATA_2009 <- Data_2009 |>
+  left_join(Countrycode, join_by("CNT" =="country"))
+## Selecting the mean and country ISO code, renaming mean to math and creating a new column with the year.
+
+Math_2009 <- DATA_2009 |>  
+  select(iso3c, Mean) |>
+  mutate(year = 2009) |>
+  rename(math = Mean, CNT = iso3c) |>
+  as_tibble()
+```
+
+*A report of 2009 data. I manually re-coded the names in the Data_2009, that has different name arrangement in the WDI data. Still, we have one country - Himachal Pradesh-India that has no correspondence. India appeared twice in mine and Catherine's version too, for the sake of this study, India is not a country of consideration. Hence, I did not investigate further to know reasons why India has two different value in the PISA 2009 data.*
+
+**2006 data**
+
+```{r averaging the 2006 data}
+Student_2006 <- student06 |> select(c("CNT", starts_with("PV") & ends_with("MATH")))
+
+
+DATA_2006 <-intsvy.mean.pv(pvnames = paste0("PV", 1:5, "MATH"), by = "CNT",
+               data = student06, config = pisa_conf)
+
+## Selecting the mean and country ISO code, renaming mean to math and creating a new column with the year.
+
+Math_2006 <- DATA_2006 |>  
+  select(CNT, Mean) |>
+  mutate(year = 2006) |>
+  rename(math = Mean) |>
+  as_tibble()
+```
+
+**2003 data **
+
+```{r averaging the 2003 data}
+Student_2003 <- student03 |> select(c("CNT", starts_with("PV") & ends_with("MATH")))
+
+
+DATA_2003 <-intsvy.mean.pv(pvnames = paste0("PV", 1:5, "MATH"), by = "CNT",
+               data = student03, config = pisa_conf)
+
+## Selecting the mean and country ISO code, renaming mean to math and creating a new column with the year.
+
+Math_2003 <- DATA_2003 |> 
+  select(CNT, Mean) |> 
+  mutate(year = 2003) |>
+  rename(math = Mean) |>
+  as_tibble()
+```
+
+**Row binding the entire data set**
+
+```{r}
+Pisa_Data <- rbind(Math_2003, Math_2006, Math_2009, Math_2012, Math_2015, Math_2018, Math_2022) |>
+  drop_na()
+```
+
+**Joining the data together, we have 462 observations from 107 countries.**
+
+**I experienced the same IND names in Data_2009, but in WDI package, it only has one ISO code for India, and I didn't investigate further because India is not a country of interest for this analysis. Hence, the reason why I dropped the other IND.**
+
+### Loading the UNSD data for geographical classification of countries.
+
+```{r regions}
+UNSD <- read.csv(here::here("UNSD — Methodology.csv"))
+
+Regions <- UNSD |> select(c("ISO.alpha3.Code","Region.Name", 
+                               "Sub.region.Name"))
+
+# We are interested in obtaining the region classification for countries that are present in our data.
+#There are 107 countries in the Pisa_Data set.
+Pisa_Country <- Pisa_Data |>
+  select(CNT) |> unique()
+
+# Left joining the UNSD with the Pisa_Country
+# Pisa_Country contains 107 countries, hence I will extract the region information for these countries from the UNSD data set.
+country_reg <- Pisa_Country |>
+  left_join(Regions, join_by(CNT == ISO.alpha3.Code))
+
+# Renaming the variables
+names(country_reg)[2] <- 'Continent'
+names(country_reg)[3] <- 'Region'
+```
+
+*The UNSD csv file has 249 countries and the PISA data has 107 countries. Hence, left-joining the two data sets we still have a total of 107 countries with their region information. These avoided the loss of any data*.
+
+### Loading the income classification from the WDI package.
+
+```{r}
+library(WDI)
+WDI <- WDI_data$country
+
+#One of the decision we made at the inception of this research was to rename (both lower middle income and upper middle income as middle income) because only Ukraine is found in the lower middle income.
+WDI_Data <- WDI |> 
+  select(c("iso3c","country", "income")) |>
+  mutate(income = recode_factor(income,
+        "Lower middle income" = "Middle Income",
+        "Upper middle income" = "Middle Income",
+        "High income" = "High Income"))
+
+names(WDI_Data)[3] <- "Income"
+WDI_Data$Income <- as.character(WDI_Data$Income)
+
+# Joining the WDI data with the  country_reg data (which contains information about the country's region classification).
+
+countrycode_reg_inc <- country_reg |>
+  left_join(WDI_Data, join_by(CNT == iso3c))
+
+#countrycode_reg_inc - contains the 107 countries present in the PISA data with their respective region and income classification.
+```
+
+Hence, we proceed to joining the pisa_data with the country, region, and income information(countrycode_reg_inc).
+
+```{r pisa_data}
+pisaFileMaths <- here::here("PISA_Data", "maths_pisa.Rdata")
+
+PISA_data <- Pisa_Data |>
+  left_join(countrycode_reg_inc, join_by(CNT)) |>
+  na.omit() |>
+  rename(Country = country)
+
+## For the sake of our data visualisation, below are some name cleaning.
+
+PISA_data <- PISA_data |>
+  mutate(Country = recode_factor(Country, 
+    "Bosnia and Herzegovina" = "Bosnia & Herzegovina",
+    "Czech Republic" = "Czechia",
+    "North Macedonia" = "Macedonia",
+    "Russian Federation" = "Russia",
+    "Slovak Republic" = "Slovakia"))
+
+PISA_Data <- PISA_data |> 
+  select(-CNT)
+
+PISA_Data$Country <- as.character(PISA_Data$Country)
+PISA_Data <- PISA_Data |>
+  select(Country, Continent, Region, Income, year, math)
+
+
+save(PISA_Data, file =pisaFileMaths)
+```
+
+*The original PISA data set has 462 observations, By merging the two data sets, we have 444 observations, 91 countries in total with 6 variables - year, math score, year_orig, country, continent, region, and income. Some ISO code does not have a valid name in the WDI package we used to give the country names.*
+
+**Side - For future use**
+
+```{r}
+## I want to create a data set with countries, its ISO Code, country name, and region only.
+## This is necessary for the geo_facet package to create the grid positioning countries by their position on the European map.
+ISO_Code <- here::here("PISA_Data", "ISO Code.Rdata")
+
+ISO_Group <- PISA_data |> 
+  select(CNT, Country, Continent) |>
+  unique()
+save(ISO_Group, file =ISO_Code)
+```
+
