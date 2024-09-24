@@ -1,0 +1,119 @@
+---
+title: "Untitled"
+output: html_document
+date: "`r Sys.Date()`"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+Another link I just came across
+https://bayesf22-notebook.classes.andrewheiss.com/bayes-rules/17-chapter.html
+
+
+Folder organisation is very good.
+
+The READme is very clear.
+
+## 00
+
+I think 00_PISA_Data.R. should create just two datasets
+- PISA_Europe_Data without PISA2022 observations
+- PISA_Europe_Data22 with JUST the 2022 observations.
+
+At present there are too many datasets and vectors floating around. If there are intermediate data structures created in 00_PISA_Data.R then remove them at the end. (rm)
+
+## 01 model fit
+
+In 01_Hierarchical_Models instead of using data = SPISA_Europe_Data, use 
+
+```{r, echo=TRUE, eval=FALSE}
+
+PISA_Europe_Data_temp <- PISA_Europe_Data |> mutate(n = n(), .by=Country) |> filter(n > 1) 
+
+```
+Fit the model with PISA_Europe_Data_temp, then remove it.
+
+At the end of this file remove fit2, .. fit5 as these are no longer used.
+
+
+Cleaner way to specify priors:
+
+```{r, eval=FALSE}
+S_Priors <- c(brms::prior(normal(500, 100), class = Intercept),
+            brms::prior(normal(0, 50), class = b),
+            brms::prior(cauchy(30, 100), class = sigma))
+
+C_Priors <- c(S_Priors,
+            brms::prior(cauchy(30, 10), class = sd, coef = Intercept, group=Country), # why (30,10)?? Check
+            brms::prior(cauchy(0, 2), class = sd, coef = year_orig, group=Country))
+
+R_Priors<- c(C_Priors,
+          brms::prior(cauchy(0, 5), class = sd, coef = Intercept, group= Region),
+          brms::prior(cauchy(0, 2), class = sd, coef = year_orig, group= Region)
+          )
+
+I_Priors<- c(C_Priors,
+          brms::prior(cauchy(0, 5), class = sd, coef = Intercept, group= Income),
+          brms::prior(cauchy(0, 2), class = sd, coef = year_orig, group= Income)
+          )
+
+IR_Priors <- c(C_Priors,
+          brms::prior(cauchy(0, 5), class = sd, coef = Intercept, group= Income_region),
+          brms::prior(cauchy(0, 2), class = sd, coef = year_orig, group= Income_region)
+          )
+```
+
+
+Why not separate out Income_region into Income*Region????
+
+Why are control parameters different for the different fits?
+
+I would add some commentary that explains the choice of priors.
+
+Is it possible to speed up the fits?
+
+Warnings with add_criterion for fits 2,3,4,5.... are these important?
+
+
+Fit1 not in loo_compare, as number of data points is different (fix the current text in line 234).  When I did loo_compare I got order 5,4,2,3, so different to what is reported.
+
+
+Remove all objects no longer needed at end of this file.
+
+
+## 01 model estimates
+
+You should not need the right_join in line 75, 92. Country is already present?
+rm CountryInd_I, CountryInd_S
+Remove lines 98-113
+All you need from the Estimates from the independent-country-specific model section is the result CountryInd_IS. You should not have different versions of the same results floating around. If you need it later, then construct this where you need it.
+
+Same applies to other models.
+
+You should not need all the variants Names, Snames etc..... 
+
+
+This file should produce the data structure with all the rvars for intercepts, slopes for the five models. All the other data structures will no longer be needed. Then for plots in the later files, either use all or some of this data struycture.
+
+This file needs a lot of further tidying up.
+
+
+
+The plots do not belong in this file. In any case, only one of these is in the paper?
+
+
+
+
+## 02 background section
+
+The code in here duplicates some code in 01 model estimates file???
+
+## 03 models in data space
+
+duplicated code
+
+
+I'm stopping looking here. The main problem is one of duplicated code and lots of extra structures lying around. When you've encorporated the changes here, I will take another look.
+
