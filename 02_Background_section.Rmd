@@ -1,0 +1,126 @@
+---
+title: "Background Section of the Paper"
+author: "Oluwayomi Akinfenwa"
+date: "06/08/2024"
+output:
+  pdf_document:
+    toc: yes
+    toc_depth: '4'
+  bookdown::html_document2:
+    toc: no
+    toc_float: yes
+    toc_depth: 4
+    number_sections: yes
+  html_document:
+    toc: yes
+    toc_depth: '4'
+    df_print: paged
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+options(knitr.duplicate.label = 'allow')
+```
+
+Creating a folder to store all the plots
+
+```{r, libraries, include = FALSE}
+if (!dir.exists(here::here("Saved_plots")))
+  dir.create(here::here("Saved_plots"))
+```
+
+Loading all the necessary packages.
+
+```{r}
+rm(list = ls()) # clear workspace
+library(brms)
+library(dplyr)
+library(tidybayes)
+library(ggplot2)
+library(ggragged)
+```
+
+
+**The conventional approach to visualise estimates from a BHM or linear regression model.**
+
+To illustrate the conventional approach, we use the country-specific hierarchical model, where countries borrow strength from a global distribution.
+
+$$ \text{math} \sim \; \text{year} + (1 + \text{year} | \text{Country}) $$
+
+All BRMS models used for this analysis are found in a folder named: 01_Hierarchical_models.Rmd.
+
+The coefficients are saved in 
+
+```{r}
+
+#Country specific model
+# These saved files are constructed by running the code in 01_Hierarchical_models.Rmd
+model2 <- readRDS(here::here("Manuscript_models", "model2.rds"))
+load(here::here("Manuscript_models", "extract_IS.Rdata"))
+```
+
+
+```{r}
+
+countries_IS2 <- filter(countries_IS, modelID=="model2") |>
+  rename(Country=group)
+
+Country_IS_Est<-  filter(countries_IS2, modelID=="model2") |> 
+  mutate(coef=median(rvar)) |> 
+  select(-c(rvar, modelID))|>
+  pivot_wider(values_from=coef, names_from=term)
+
+```
+
+
+#### Visualising this model fit in the data space
+
+```{r}
+
+pdf(here::here("Saved_plots", "Country_specific.pdf"))
+
+baseline_year <- 2018
+
+ggplot(data = model2$data,  # Europe PISA data up to 2018
+         aes(x=year_orig, y=math))+
+  geom_point(color = "grey25")+
+   geom_abline(data= Country_IS_Est, 
+               aes(slope=year_orig, intercept= Intercept))+
+  facet_wrap(~ Country, nrow = 6,
+             labeller = label_wrap_gen(width= 10))+
+  labs(x = " ", y = " ") +
+ scale_x_continuous(breaks = seq(-15,0,3), labels = function(x) x+baseline_year)+
+  theme_bw() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 0.5, vjust = 0.5,
+                                      size = 7, face = "bold"),
+        plot.title = element_text(hjust = 0.4, size = 10),
+        axis.text.y = element_text(size = 10, face = "bold"),
+        strip.text.x = element_text(size = 9, face = "bold"))
+dev.off()
+```
+
+#### Pulling out the offsets from the country-specific model
+
+```{r}
+#The global intercept and slope from model2
+
+global_I <- filter(groups_IS_by_country, modelID=="model2", term=="Intercept")
+
+
+CI_offset <- countries_IS2 |> 
+  filter(term=="Intercept")
+CI_offset$rvar <- CI_offset$rvar - global_I$rvar 
+
+
+# The visual
+
+pdf(here::here("Saved_plots", "offset.pdf"))
+
+ggplot(data = CI_offset)+
+  ggdist::stat_pointinterval(aes(xdist = rvar, y= Country),
+          color ="burlywood4", .width = c(.50, .95), point_size = 1.4)+
+  geom_vline(xintercept = 0, color = "red3") +
+  labs(x = " ", y = " ")
+dev.off()
+```
+
