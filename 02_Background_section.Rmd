@@ -1,7 +1,7 @@
 ---
 title: "Background Section of the Paper"
 author: "Oluwayomi Akinfenwa"
-date: "06/08/2024"
+date: "01/10/2024"
 output:
   pdf_document:
     toc: yes
@@ -34,9 +34,8 @@ Loading all the necessary packages.
 ```{r}
 rm(list = ls()) # clear workspace
 library(brms)
-library(dplyr)
 library(tidybayes)
-library(ggplot2)
+library(tidyverse)
 library(ggragged)
 ```
 
@@ -65,7 +64,7 @@ load(here::here("Manuscript_models", "extract_IS.Rdata"))
 countries_IS2 <- filter(countries_IS, modelID=="model2") |>
   rename(Country=group)
 
-Country_IS_Est<-  filter(countries_IS2, modelID=="model2") |> 
+Country_IS_Est <-  filter(countries_IS2, modelID=="model2") |> 
   mutate(coef=median(rvar)) |> 
   select(-c(rvar, modelID))|>
   pivot_wider(values_from=coef, names_from=term)
@@ -104,7 +103,7 @@ dev.off()
 ```{r}
 #The global intercept and slope from model2
 
-global_I <- filter(groups_IS_by_country, modelID=="model2", term=="Intercept")
+global_I <- filter(groups_IS_by_country, modelID == "model2", term == "Intercept")
 
 
 CI_offset <- countries_IS2 |> 
@@ -120,7 +119,7 @@ ggplot(data = CI_offset)+
   ggdist::stat_pointinterval(aes(xdist = rvar, y= Country),
           color ="burlywood4", .width = c(.50, .95), point_size = 1.4)+
   geom_vline(xintercept = 0, color = "red3") +
-  labs(x = " ", y = " ")
+  labs(x = "Intercept offsets ", y = " ")
 dev.off()
 ```
 
