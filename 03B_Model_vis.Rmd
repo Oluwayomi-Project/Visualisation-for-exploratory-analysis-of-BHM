@@ -1,0 +1,192 @@
+---
+title: "Visuals to compare estimates across all models"
+author: "Oluwayomi Akinfenwa"
+date: "01/10/2024"
+output:
+  html_document:
+    toc: yes
+    toc_depth: '4'
+    df_print: paged
+  bookdown::html_document2:
+    toc: no
+    toc_float: yes
+    toc_depth: 4
+    number_sections: yes
+  pdf_document:
+    toc: yes
+    toc_depth: '4'
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+options(knitr.duplicate.label = 'allow')
+```
+
+```{r}
+library(tidyverse)
+library(geofacet)
+library(grid)
+
+```
+
+Creating a folder to store all the plots
+
+```{r, libraries, include = FALSE}
+if (!dir.exists(here::here("Saved_plots")))
+  dir.create(here::here("Saved_plots"))
+```
+
+
+
+```{r loading the data}
+rm(list = ls()) # clear workspace
+load(here::here("PISA_data", "Country_groups.Rdata")) # Country_groups constructed by sourcing 00_PISA_Data.R
+
+```
+
+A plot showing the models parameters and hyper-parameter estimates and credible intervals (80% and 95%), facet by country and connecting the points of estimates from the 5 models (Non-pooled model fits, Country-specific model and Region, Income, Income-Region hierarchical models) to differentiate the country-level estimates from the hierarchical estimates.
+The country-level estimates and connected by a dashed line why the hierarchical estimates are positioned beside it.
+
+```{r}
+# Our interest is to visually present estimates from all the models together,
+# These have been saved in the 01_hierarchical_models.Rmd file as extract_IS.Rdata
+
+load(here::here("Manuscript_models", "extract_IS.Rdata"))
+
+```
+
+
+### The plots using the geo_facet to group the countries according to its position on the map.
+
+```{r}
+
+#We created a 8 by 7 grid mirroring the country's position on the map. 
+row<-c(7,5,3,4,5,5,6,4,2,1,1,5,3,7,4,1,2,6,2,4,
+       2,4,6,7,4,6,3,1,3,6,4,2,5,3,5,6,1,5,3,2)
+
+col<-c(6,4,7,2,6,8,5,5,4,7,6,2,4,7,6,1,1,4,7,4,
+       6,3,7,4,8,6,3,4,5,1,7,8,7,6,5,2,5,3,8,2)
+
+
+geo_grid <- data.frame(row=row, col=col, code=Country_groups$Country, name=Country_groups$Country)
+
+country_flag <- Country_groups |>
+    select(Country,color_region, color_income) |> 
+   as.data.frame()
+
+
+model_flag <- setNames(c("darkolivegreen4", "purple2", "blue3","brown4", "darkgoldenrod3"), unique(countries_IS$modelID))
+
+```
+
+```{r}
+## Comparing the model intercept estimates
+if (!dir.exists(here::here("Saved_plots")))
+  dir.create(here::here("Saved_plots"))
+
+
+P1 <- ggplot(data = filter(countries_IS, term == "Intercept"),
+              aes(x=modelID))+
+  geom_line(aes(y = median(rvar), group = group), linetype = "solid", color = "grey45")+
+  ggdist::stat_pointinterval(aes(ydist =rvar, color = modelID),
+                       point_size = 1.3, .width = c(.80,.95)) +
+  ggdist::stat_pointinterval(data = filter(groups_IS_by_country, term =="Intercept"),
+             aes(ydist = rvar, color = modelID), .width = c(.80,.95),
+             point_size = 1.3, alpha = 0.28, position=position_nudge(x = 0.20), width = 0.1)+
+  scale_color_manual(values = model_flag,  name="Model",
+                     labels = c("No pooling \nModel", "Country \nModel",
+                                "Region \nModel","Income \nModel","Income-region \n Model"))+
+  facet_geo(~group, grid = geo_grid, scales= "free_y",
+            labeller=label_wrap_gen(width=9))+
+  labs(x = " ", y = " ")+
+  theme_bw()+
+  theme(
+    axis.text.x = element_blank(), axis.ticks.x=element_blank(),
+        strip.text.x = element_text(size = 12.5, face = "bold",
+                         margin = margin(-0.06,0,-0.02,0, "cm")),
+        axis.text.y = element_text(size = 9.5, face = "bold"),
+        legend.title = element_text(size = 12.5, face = "bold"),
+        legend.text = element_text(size = 12.5, face = "bold"),
+      legend.position = "bottom")
+
+
+
+
+pdf(here::here("Saved_plots", "Intercept.pdf"), height = 11,
+    width = 15)
+
+g <- get_geofacet_grob(P1) # for geo_facet plots
+
+stript <- which(grepl('strip-t', g$layout$name)) 
+
+for (i in stript){
+  j <- which(grepl('rect', g$grobs[[i]]$grobs[[1]]$childrenOrder))
+  k <- which(grepl('text', g$grobs[[i]]$grobs[[1]]$childrenOrder))
+  grobtext <- g$grobs[[i]]$grobs[[1]]$children[[k]]$children[[1]]$label
+  st <- match(gsub(" |\n", "",grobtext), gsub(" |\n", "",country_flag$Country))
+  if (!is.na(st)){
+    g$grobs[[i]]$grobs[[1]]$children[[j]]$gp$fill <- country_flag[st, "color_region"]
+    r <- which(grepl('text', g$grobs[[i]]$grobs[[1]]$children[[k]]$childrenOrder))
+    g$grobs[[i]]$grobs[[1]]$children[[k]]$children[[r]]$gp$col <- country_flag[st, "color_income"]
+  } 
+}
+
+grid.draw(g)
+
+dev.off()
+```
+
+
+```{r}
+## Comparing the model slope estimates
+
+
+P2 <- ggplot(data = filter(countries_IS, term =="year_orig"),
+              aes(x=modelID))+ 
+  geom_line(aes(y = median(rvar), group = group), linetype = "solid", color = "grey45")+
+  ggdist::stat_pointinterval(aes(ydist =rvar, color = modelID),
+                       point_size = 1.3, .width = c(.80,.95)) +
+  ggdist::stat_pointinterval(data = filter(groups_IS_by_country, term=="year_orig"),
+             aes(ydist = rvar, color = modelID), .width = c(.80,.95),
+             point_size = 1.3,alpha = 0.28, position=position_nudge(x = 0.20), width = 0.1)+
+  scale_color_manual(values = model_flag, name="Model",
+                     labels = c("No pooling \nModel", "Country \nModel","Region \nModel","Income \nModel","Income-region \n Model"))+
+  facet_geo(~group, grid = geo_grid, scales= "free_y",
+            labeller=label_wrap_gen(width=9))+
+  labs(x = " ", y = " ")+
+  theme_bw()+
+  theme(
+    axis.text.x = element_blank(), axis.ticks.x=element_blank(),
+        strip.text.x = element_text(size = 12.5, face = "bold",
+                                    margin = margin(-0.06,0,-0.02,0, "cm")),
+        axis.text.y = element_text(size = 9.5, face = "bold"),
+        legend.title = element_text(size = 12.5, face = "bold"),
+        legend.text = element_text(size = 12.5, face = "bold"),
+      legend.position = "bottom")
+
+
+pdf(here::here("Saved_plots", "Slope.pdf"), height = 11,
+    width = 15)
+
+g <- get_geofacet_grob(P2) # for geo_facet plots
+
+stript <- which(grepl('strip-t', g$layout$name)) 
+
+for (i in stript){
+  j <- which(grepl('rect', g$grobs[[i]]$grobs[[1]]$childrenOrder))
+  k <- which(grepl('text', g$grobs[[i]]$grobs[[1]]$childrenOrder))
+  grobtext <- g$grobs[[i]]$grobs[[1]]$children[[k]]$children[[1]]$label
+  st <- match(gsub(" |\n", "",grobtext), gsub(" |\n", "",country_flag$Country))
+  if (!is.na(st)){
+    g$grobs[[i]]$grobs[[1]]$children[[j]]$gp$fill <- country_flag[st, "color_region"]
+    r <- which(grepl('text', g$grobs[[i]]$grobs[[1]]$children[[k]]$childrenOrder))
+    g$grobs[[i]]$grobs[[1]]$children[[k]]$children[[r]]$gp$col <- country_flag[st, "color_income"]
+  } 
+}
+
+grid.draw(g)
+
+dev.off()
+```
+  
+  
