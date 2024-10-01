@@ -234,6 +234,7 @@ extract_IS <- function(m, x,group_var, re_formula=NULL, modelID="id"){
 }
 
 #Country's intercept and slope estimates
+
 countries_IS <- bind_rows(
   extract_IS(model1, "year_orig", "Country", modelID = "model1"),
   extract_IS(model2, "year_orig", "Country", modelID = "model2"),
