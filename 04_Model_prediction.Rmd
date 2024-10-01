@@ -1,0 +1,135 @@
+---
+title: "Model prediction from the Income-region model"
+author: "Oluwayomi Akinfenwa"
+date: "01/10/2024"
+output:
+  html_document:
+    toc: yes
+    toc_depth: '4'
+    df_print: paged
+  bookdown::html_document2:
+    toc: no
+    toc_float: yes
+    toc_depth: 4
+    number_sections: yes
+  pdf_document:
+    toc: yes
+    toc_depth: '4'
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+options(knitr.duplicate.label = 'allow')
+```
+
+```{r}
+library(dplyr)
+library(brms)
+library(ggplot2)
+library(tidybayes)
+```
+
+Sourcing the file containing all the data and country groupings needed for this analysis from 00_PISA_Data.R.
+
+
+```{r loading the data}
+rm(list = ls()) # clear workspace
+
+load(here::here("PISA_data", "Europe_Pisamaths.Rdata")) # Pisa_Europe_Data constructed by sourcing 00_PISA_Data.R
+load(here::here("PISA_data", "Country_groups.Rdata")) # Country_groups constructed by sourcing 00_PISA_Data.R
+
+```
+
+
+## Loading the hierarchical model
+
+
+```{r}
+#Income-region hierarchical model
+model5 <- readRDS(here::here("Manuscript_models", "model5.rds")) #saved in the 01_hierarchical_models.Rmd file
+
+```
+
+
+### Pulling the posterior draws estimates for the year 2022.
+
+We want to calculate the differences between the predicted values and the observed PISA scores for year 2022.
+
+Recall that we didn't include the PISA2022 observations in our modelling, hence we chose the Income_region model to predict PISA2022 scores and visualise the differences between predicted and observed PISA2022.
+
+```{r}
+
+#Creating a grid of the data, make prediction for year 2022, and observed 2022 response
+baseline_year <- 2018
+
+Pisa22 <- Pisa_Europe_Data |>
+  filter(year==2022) |>
+  select(Country, math)
+
+Pred_2022 <- Pisa_Europe_Data |>
+  select(-math) |>
+  slice(1, .by=Country) |>
+  mutate(year=2022, year_orig = year-baseline_year) |>
+  add_predicted_rvars(model5) |>
+  rename(pred = .prediction) |>
+  left_join(Pisa22, by = join_by(Country)) |>
+  mutate(math0 = math - pred, prob = posterior::Pr(pred <= math)) |>
+  arrange(!is.na(prob), prob) |>
+  mutate(Country = factor(Country, levels = Country))
+  
+```
+
+
+We want to plot the differences between predicted and observed PISA scores for 2022.
+
+
+```{r}
+#Income-region flag
+IR_flag <- Country_groups |>
+   slice(1, .by=Income_region) |>
+   select(-Country, -Income, -Region) |>
+    as.data.frame()
+```
+
+
+#### Visualising the differences between the predicted and observed from the incomeregion model.
+
+```{r}
+if (!dir.exists(here::here("Saved_plots")))
+  dir.create(here::here("Saved_plots"))
+
+pdf(here::here("Saved_plots", "Pred_Obsv.pdf"))
+# The plot
+P_IR <- ggplot(data = Pred_2022)+
+  geom_vline(xintercept = 0, color = "burlywood4")+
+        ggdist::stat_pointinterval(aes(xdist = math0, y= Country),
+                  .width = c(.50, .80, .95), point_size = 1.4, color ="grey35")+
+  facet_grid(Income_region ~ ., scales = "free_y", space = "free_y", switch = "y")+ 
+  labs(x ="Differences between predicted and observed PISA2022 estimates", y = " ")+
+  theme_bw()+
+  theme(strip.text = element_text(size = 6.3, face = "bold"),
+        axis.text.y = element_text(size = 8.0),
+        axis.title.x = element_text(size = 8))  # Adjust the x-axis title size
+
+
+#creating the grid color
+G <- ggplotGrob(P_IR) # for other ggplots
+
+stripl <- which(grepl('strip-l', G$layout$name))  #the y axis names has been switch to the left, hence the reason for the strip-l
+for (i in stripl){
+  j <- which(grepl('rect', G$grobs[[i]]$grobs[[1]]$childrenOrder))
+  k <- which(grepl('text', G$grobs[[i]]$grobs[[1]]$childrenOrder))
+  grobtext <- G$grobs[[i]]$grobs[[1]]$children[[k]]$children[[1]]$label
+  st <- match(grobtext, IR_flag$Income_region)
+  if (!is.na(st)){
+    G$grobs[[i]]$grobs[[1]]$children[[j]]$gp$fill <- IR_flag[st, "color_region"]
+    r <- which(grepl('text', G$grobs[[i]]$grobs[[1]]$children[[k]]$childrenOrder))
+    G$grobs[[i]]$grobs[[1]]$children[[k]]$children[[r]]$gp$col <- IR_flag[st, "color_income"]
+    G$grobs[[i]]$grobs[[1]]$children[[k]]$children[[1]]$label <- 
+      stringr::str_replace_all(grobtext, stringr::fixed("_ "), "\n")
+  }
+}
+
+grid.draw(G)
+dev.off()
+```
