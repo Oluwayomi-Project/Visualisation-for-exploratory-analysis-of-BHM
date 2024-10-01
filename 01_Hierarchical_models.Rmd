@@ -245,12 +245,12 @@ countries_IS <- bind_rows(
  
  
 
-#  groups_IS <- bind_rows(
+  groups_IS <- bind_rows(
 #   extract_IS(model2, "year_orig", group=NA, modelID = "model2"),
-#   extract_IS(model3, "year_orig", group="Region", modelID = "model3", re_formula="~year_orig|Region") ,
-#   extract_IS(model4, "year_orig", "Income", modelID = "model4", re_formula="~year_orig|Income"),
-#   extract_IS(model5, "year_orig", "Income_region", modelID = "model5", re_formula="~year_orig|Income_region")
-# )
+   extract_IS(model3, "year_orig", group="Region", modelID = "model3", re_formula="~year_orig|Region") ,
+   extract_IS(model4, "year_orig", "Income", modelID = "model4", re_formula="~year_orig|Income"),
+   extract_IS(model5, "year_orig", "Income_region", modelID = "model5", re_formula="~year_orig|Income_region")
+ )
 
 # Country's hyper-parameter estimates, such that the country estimate is its
 # respective hierarchical structure estimate.
@@ -262,7 +262,7 @@ groups_IS_by_country <- bind_rows(
   extract_IS(model5, "year_orig", "Country", modelID = "model5", re_formula="~year_orig|Income_region")
 )
 
-save(extract_IS, countries_IS, groups_IS_by_country, file=here::here("Manuscript_models", "extract_IS.Rdata"))
+save(extract_IS, countries_IS, groups_IS, groups_IS_by_country, file=here::here("Manuscript_models", "extract_IS.Rdata"))
 ```
 
 
