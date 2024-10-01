@@ -1,5 +1,5 @@
 ---
-title: "Plot for Subsection 3.1 - Visual to display model in the data space"
+title: "Plot for Subsection 3.1 - Visual for model in the data space"
 author: "Oluwayomi Akinfenwa"
 date: "01/10/2024"
 output:
