@@ -1,22 +1,22 @@
 
 ## Visualisations for exploratory analysis of Bayesian hierarchical regression models
 
-### All the data needed for this analysis are saved in the folder named "PISA_Data" as; maths_pisa.Rdata and Europe_Pisamaths.Rdata.
+### All the data needed for this analysis are saved in the folder named "PISA_data" as; maths_pisa.Rdata and Europe_Pisamaths.Rdata.
 
-#### If you can't load this data, the codes in 00_OECD_Rawdata.Rmd file will generate the data for you but you have to download the SPSS raw data directly from OECD website.
+#### If you can't load this data, the codes in 00_OECD_rawdata.Rmd file will generate the data for you but you have to download the SPSS (.sav file) for the raw data directly from OECD website.
 
 **The maths_pisa.Rdata contains the entire data from OECD with all the countries that participated in PISA survey. This data set is the average maths score across all the countries over time.**
 
-**The Europe_Pisamaths.Rdata contains the data for the European countries comprising of 237 observations from 40 countries. Filtering year 2022, as the modelling were conducted without the PISA 2022 observations, we have 202 observations left.**
+**The Europe_Pisamaths.Rdata contains the data for the European countries comprising of 237 observations from 40 countries.**
 
-### Data cleaning - 00_OECD_RawData.Rmd
-Upon careful examination, it was observed that the PISA dataset recorded by the learningtower differs from the information available on the OECD website. 
+### Data cleaning - 00_OECD_rawData.Rmd
+The PISA data is available in the learningtower R package, but upon careful examination, we observed that the PISA dataset recorded by the learningtower differs from the information available on the OECD website. 
 Consequently, we decided to download the raw data directly from the OECD website.
 
 The datasets for the years 2022, 2018, and 2015 are saved as SPSS (.sav file), while the preceding years— 2012, 2009, 2006, 2003, and 2000—are saved as TXT files.
 
 For the .sav files, the R package named haven provides a function called read_spss, facilitating the reading of SPSS files into R. 
-Utilizing this package, we successfully loaded the data in its SPSS format for the years 2022, 2018, and 2015.
+Utilising this package, we successfully loaded the data in its SPSS format for the years 2022, 2018, and 2015.
 
 As for the PISA surveys conducted prior to 2015, the data was stored as TXT files. 
 There are multiple methods to load the data into R, including downloading SPSS software. 
@@ -25,12 +25,18 @@ The raw data, comprising score points and weights, was downloaded as a dataset.
 
 The R package intsvy, designed to consider complex sample designs, was employed for this purpose. We used this package to compute the mean of the raw data for each country.
 
-### Data Processing - 00_PISA_Data.R
-This file contains all the necessary libraries for this analysis. It processed the data and saved the data for the European countries as Pisa_Europe_Data with PISA2022 observations and PISA_Europe_Data without PISA2022 observations. 
+This file generates and saves all the data as "PISA_data/maths_pisa.Rdata" containing country maths score by year for all countries.
 
-For the independent country model, we ignored countries with one data points. Countries like Belarus, Ukraine, and Bosnia & Herzegovina. Hence, we created a new dataset for the Pisa_Europe_Data and PISA_Europe_Data without these countries as SPisa_Europe_Data and SPISA_Europe_Data respectively.
+### Data Processing - 00_PISA_Data.R
+
+This file generates Pisa_Europe_Data and saves in "PISA_data/Europe_Pisamaths.Rdata" containing the subset of the PISA data used in the analysis. 
+
+A further dataset Country_groups is generated, containing the income and region country groupings and also colours to be used in all visualisations. This dataset is saved in "PISA_data/Country_groups.Rdata"
 
 ### Model Fitting - 01_Hierarchical_Models.Rmd
+
+Only data up to 2018 is used in model fitting.
+
 In all our models, we employed the brms R package and fitted 5 models which are:
 Model 1 - The independent model  $\text{math} \sim  \text{year} * \text{Country}$
 
@@ -46,19 +52,28 @@ Model 4 - The Income hierarchical model $\text{math} \sim  \text{year} + (1 + \t
 
 Model 5 - The Income-region hierarchical model $\text{math} \sim  \text{year} + (1 + \text{year} | \text{Income-region}) + (1 + \text{year} | \text{Country})$
 
+In this file the five models are fitted and saved individually in the folder "Manuscript_models". These models take some time to run (about 2hours in total on my laptop.)
 
-### Extracting estimates from the models - 01_Model_Estimates.Rmd
-The parameter estimates derived from all the fitted models were extracted in this file and utilised to generate visual representations of the model regression line on the observed data. These visualisations are stored as "Independent_fit.pdf," "country_specific_fit.pdf," "region_hierarchical_fit.pdf," "income_hierarchical_fit.pdf," and "income-region_hierarchical_fit.pdf" within the **regression_fits folder** of the **Saved_Plots folder**.
+In addition, the country intercepts and slopes are saved as  in  "Manuscript_models/extract_IS.Rdata".
+For simplicity, rather than parsing the coefficient structure generated by the models, coefficients are generate by prediction using `tidybayes::epred_rvars`.
+`country_IS` contains country intercept and slopes for five models,
+`groups_IS` contains group intercept and slopes for the four hierarchical models.
+`groups_IS_by_country` contains the same information as `groups_IS`, just listing the (global/region/income/income-region) group level  intercepts/slopes for each country. These coefficients will be used in later visualisations.
+
+
+
 
 
 ### Plots for the Background section of the paper - 02_Background_Section.Rmd
-The conventional visualisation of model estimates where we have the model fit on the data points, showing the overall trends across each country was created and the plots showing the country offsets from the country-specific model.
+The conventional visualisation of model estimates where we have the model fit on the data points, showing the overall trends across each country was created and the plots showing the country offsets from the country-specific model. These displays use model2, so from the single level hierarchical model.
 
-### Displaying the model in the data space - 03_Model_in_Data_Space.Rmd
+### Displaying the model in the data space - 03A_Model_Vis.Rmd
+This file uses model3, the country-in-region hierarchial model. Only the coefficients are needed to generate the plot.
+
 We displayed the model in the data space using the ggragged R package to arrange the panels according to their respective geographical groupings. We utilised colour, scaled to facilitate comparison across each region group.
 
-### Examining a collection of multiple models - 03_Multiple_Models.Rmd
-We displayed the parameter estimates across the 5 models and the hyper-parameter estimates across the 4 hierarchical models simultaneously arranging the countries to micmic the geographical layouts with the help of the geofacet package. We specified a grid manually to position each country on a 7 by 8 matrix.
+### Examining a collection of multiple models - 03B_Model_Vis.Rmd
+We displayed the parameter estimates across the 5 models and the hyper-parameter estimates across the 4 hierarchical models simultaneously arranging the countries to mimic the geographical layouts with the help of the `geofacet` package. We specified a grid manually to position each country on a 7 by 8 matrix.
 
 ### Exploring the PISA 2022 estimates - 04_Model_Prediction.Rmd
 We predicted the estimates across the countries using the income-region hierarchical model and presented the prediction error by subtracting the predicted estimates from the observed values (Observed - Predicted). The estimates alongside its 50%, 80% and 95% prediction intervals were presented using the stat_pointinterval function of ggdist R package. Countries were faceted using the income-region grouping and coloured by the same color scheme used to differentiate the region and income groups.
