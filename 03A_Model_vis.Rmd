@@ -1,0 +1,178 @@
+---
+title: "Plot for Subsection 3.1 - Visual to display model in the data space"
+author: "Oluwayomi Akinfenwa"
+date: "01/10/2024"
+output:
+  pdf_document:
+    toc: yes
+    toc_depth: '4'
+  bookdown::html_document2:
+    toc: no
+    toc_float: yes
+    toc_depth: 4
+    number_sections: yes
+  html_document:
+    toc: yes
+    toc_depth: '4'
+    df_print: paged
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+options(knitr.duplicate.label = 'allow')
+```
+
+```{r}
+library(tidyverse)
+library(grid)
+library(ggragged)
+```
+
+
+Sourcing the file containing all the data needed for this analysis from 00_PISA_Data.R.
+
+
+```{r loading the data}
+rm(list = ls()) # clear workspace
+
+load(here::here("PISA_data", "Europe_Pisamaths.Rdata")) # Pisa_Europe_Data constructed by sourcing 00_PISA_Data.R
+
+
+Pisa_Europe_Data_18 <- filter(Pisa_Europe_Data, year <=2018) # models fit w/o 2022
+
+
+load(here::here("PISA_data", "Country_groups.Rdata")) # Country_groups constructed by sourcing 00_PISA_Data.R
+
+```
+
+For this display, we use the country-in-region hierarchical model.
+
+### Extracting the estimates from the region hierarchical model
+
+```{r}
+
+load(here::here("Manuscript_models", "extract_IS.Rdata")) # saved in the 01_Hierarchical_models.Rmd file
+Region_IS <-  
+  filter(groups_IS, modelID=="model3") |>
+  mutate(coef=median(rvar)) |>
+  select(-rvar) |>
+  pivot_wider(values_from=coef, names_from=term) |>
+  rename(Slope = year_orig)
+  
+Country_IS <- 
+  filter(countries_IS, modelID=="model3") |>
+  mutate(coef=median(rvar))|>
+  select(-rvar) |>
+  pivot_wider(values_from=coef, names_from=term) |>
+  rename(Slope = year_orig) |>
+  left_join(Country_groups[, c("Country", "Region")], by = join_by(group == Country))
+
+```
+
+#### Tidying the model estimates.
+
+```{r}
+
+#We want to create a variable with the slopesign and a variable to order the countries in ascending slope.
+Region_IS <- Region_IS |> 
+  mutate(slopesign = sign(Slope), # Adding sign (-ve or +ve)
+         order_slope = Slope +min(Country_IS$Slope)) #Adding the min slope of the country estimates from the hierarchy estimates, to ensure that the estimates for hierarchy are the least for the sake of positioning the hierarchical estimates on the first column of each panel
+  
+
+
+Country_IS <- Country_IS |> 
+  mutate(slopesign = sign(Slope),
+         order_slope = Slope)
+
+
+# To create our plot
+# Merge the estimates for region hierarchy and country level together.
+Group_IS <- bind_rows(
+  mutate(Region_IS, Region=group),
+  Country_IS
+)
+
+
+PISA_Europe_temp <- Pisa_Europe_Data_18 |>
+  left_join(select(Country_IS, group, order_slope), #selecting the Group and the slope ordering
+            join_by(Country ==group)) |>
+  select(group=Country, Region, math, year,  year_orig, order_slope)
+  
+#Duplicating it for Region
+PISA_Region_temp <- Pisa_Europe_Data_18 |>
+          left_join(select(Region_IS, group, order_slope), #selecting the Group and the slope ordering 
+                    join_by(Region ==group)) |>
+  select(group=Region, Region=Region, math, year,  year_orig, order_slope)
+
+
+PISA_temp <- bind_rows(PISA_Europe_temp, PISA_Region_temp)
+rm(PISA_Europe_temp, PISA_Region_temp)
+```
+
+
+#### Visualising the region model fit on each country with the hierarchy fit on each region - Grouping by region.
+
+
+```{r}
+
+country_flag <- Country_groups |>
+    select(Group=Country, color_region) 
+
+R_flag <- Country_groups |>
+  slice(1, .by=Region) |>
+    select(Group=Region, color_region)
+
+plot_flags <- bind_rows(R_flag, country_flag)  
+
+```
+
+```{r}
+if (!dir.exists(here::here("Saved_plots")))
+  dir.create(here::here("Saved_plots"))
+
+pdf(here::here("Saved_plots", "Region_fit+hierachy_est.pdf"), height = 4.5)
+
+baseline_year <- 2018
+
+P <- ggplot(data = PISA_temp,
+            aes(x=year_orig, y=math))+
+  geom_point(color = "grey35", size = 1.1)+
+  geom_abline(data= Group_IS, 
+              aes(slope=Slope, intercept= Intercept, color = factor(slopesign))) + 
+   facet_ragged_rows(
+                    vars(facet = reorder(Region, order_slope)),
+                    vars(reorder(group, order_slope)),
+                    scales = "free_y", switch = "y",
+                  labeller=label_wrap_gen(width = 9))+
+  scale_x_continuous(breaks = seq(-15,0,3),labels = function(x) x+baseline_year) +
+  scale_y_continuous(position = "right")+
+  labs(x= " ", y = " ",  color = "Slope") + 
+  scale_color_manual(values = c("firebrick2", "blue"), labels = c("negative", "positive"), na.translate = F)+
+  theme(legend.position = "none",
+        panel.spacing.y = unit(0.5, "lines"),
+        plot.subtitle = element_text(family = "Serif"),
+        axis.text.x = element_text(angle = 61, hjust = 0.5, vjust = 0.5,size =5.05, face = "bold"),
+        strip.text.x = element_text(size = 4.5, face = "bold"),
+        strip.text.y = element_text(size = 6.65, face = "bold"),
+        axis.text.y = element_text(size = 5.9, face = "bold"))
+
+G <- ggplotGrob(P)
+
+Strip <- which(grepl('strip', G$layout$name)) 
+
+
+for (i in Strip){
+  j <- which(grepl('rect', G$grobs[[i]]$grobs[[1]]$childrenOrder))
+  k <- which(grepl('text', G$grobs[[i]]$grobs[[1]]$childrenOrder))
+  grobtext <- G$grobs[[i]]$grobs[[1]]$children[[k]]$children[[1]]$label
+  st <- match(gsub(" |\n", "",grobtext), gsub(" |\n", "",plot_flags$Group))
+  if (isTRUE( !is.na(st))){
+    G$grobs[[i]]$grobs[[1]]$children[[j]]$gp$fill <- plot_flags[st, "color_region"]
+  }
+}
+
+grid.draw(G)
+
+dev.off()
+```
+
