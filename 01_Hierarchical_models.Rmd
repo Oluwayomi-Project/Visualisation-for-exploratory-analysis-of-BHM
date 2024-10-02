@@ -55,6 +55,7 @@ options(mc.cores = 4
 set.seed(1234)
 bayes_seed <-1234
 niter<-  12000
+# niter <- 100 #use for testing purposes
 
 ```
 
