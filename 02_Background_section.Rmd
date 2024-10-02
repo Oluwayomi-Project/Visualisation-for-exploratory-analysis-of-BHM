@@ -37,6 +37,7 @@ library(brms)
 library(tidybayes)
 library(dbplyr)
 library(tidyr)
+library(ggplot2)
 library(ggragged)
 ```
 
